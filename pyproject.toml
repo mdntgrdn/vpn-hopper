@@ -3,7 +3,7 @@ package-mode = true
 packages = [{include = "scripts", from = "."}]
 
 [project]
-name = "awg-ansible-controller"
+name = "vpn-hopper"
 version = "0.1.0"
 description = ""
 authors = [
