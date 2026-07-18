@@ -1,0 +1,14 @@
+---
+- name: Skip when chain has no AWG servers
+  ansible.builtin.meta: end_play
+  when: chain_awg_server_hosts | default([]) | length == 0
+  run_once: true
+
+- name: Neighbor keys list for current node
+  when: chain_awg_server_hosts | default([]) | length > 0
+  ansible.builtin.set_fact:
+    awg_peer_public_keys_for_host: "{{ host_peer_keys[inventory_hostname] | default([]) }}"
+
+- name: Deploy neighbor public keys on node
+  ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/secrets_push_peer_keys.yml"
+  when: chain_awg_server_hosts | default([]) | length > 0

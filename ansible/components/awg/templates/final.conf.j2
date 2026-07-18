@@ -1,0 +1,33 @@
+[Interface]
+Address = {{ tunnel_address }}
+PrivateKey = {{ private_key }}
+ListenPort = {{ listen_port }}
+MTU = 1280
+
+# AmneziaWG v2 obfuscation
+Jc = 7
+Jmin = 45
+Jmax = 190
+S1 = 68
+S2 = 52
+S3 = 28
+S4 = 12
+H1 = 52345678
+H2 = 62345678
+H3 = 72345678
+H4 = 82345678
+
+# NAT and forwarding to WAN
+PostUp = iptables -A FORWARD -i {{ awg_chain_name }} -o {{ wan_iface }} -j ACCEPT
+PostUp = iptables -A FORWARD -i {{ wan_iface }} -o {{ awg_chain_name }} -m state --state RELATED,ESTABLISHED -j ACCEPT
+PostUp = iptables -t nat -A POSTROUTING -s {{ client_subnet }} -o {{ wan_iface }} -j MASQUERADE
+PostUp = iptables -t nat -A POSTROUTING -s {{ tunnel_subnet }} -o {{ wan_iface }} -j MASQUERADE
+
+PostDown = iptables -D FORWARD -i {{ awg_chain_name }} -o {{ wan_iface }} -j ACCEPT
+PostDown = iptables -D FORWARD -i {{ wan_iface }} -o {{ awg_chain_name }} -m state --state RELATED,ESTABLISHED -j ACCEPT
+PostDown = iptables -t nat -D POSTROUTING -s {{ client_subnet }} -o {{ wan_iface }} -j MASQUERADE
+PostDown = iptables -t nat -D POSTROUTING -s {{ tunnel_subnet }} -o {{ wan_iface }} -j MASQUERADE
+
+[Peer]
+PublicKey = {{ peer_down_public_key }}
+AllowedIPs = {{ downstream_tunnel_ip }}/32, {{ client_subnet }}

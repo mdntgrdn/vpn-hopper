@@ -1,0 +1,37 @@
+---
+# One wg_peer_batch item: compute AllowedIPs and append to awg_clients.yml (controller).
+- name: Compute next AllowedIPs in client_subnet
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -m
+      - scripts.lib.wg.next_client_ip
+      - --chain
+      - "{{ awg_chain_name }}"
+  environment:
+    PYTHONPATH: "{{ awg_pythonpath }}"
+  register: _wg_next_ip
+  changed_when: false
+
+- name: Append client to awg_clients
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -m
+      - scripts.lib.wg.registry_cli
+      - --chain
+      - "{{ awg_chain_name }}"
+      - --public-key
+      - "{{ _kp.public }}"
+      - --allowed-ips
+      - "{{ _wg_next_ip.stdout | trim }}"
+      - --comment
+      - "{{ peer_item.comment | default('') }}"
+  vars:
+    _kp: "{{ hostvars[wg_entry_host].wg_client_keys[peer_item.wg_peer_id] }}"
+  environment:
+    PYTHONPATH: "{{ awg_pythonpath }}"
+    WG_PEER_USERNAME: "{{ peer_item.username }}"
+    WG_PEER_PRIVATE_KEY: "{{ _kp.private }}"
+  changed_when: true
+  no_log: true

@@ -1,0 +1,17 @@
+---
+# Fetch vless_clients.yml from the wrapper host into .work/group_vars.
+# Entry: python3 scripts/list_clients.py --chain NAME (vless-http leg).
+
+- name: Pull vless_clients from wrapper host
+  hosts: "{{ vless_wrapper_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import vless_clients pull
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_http_tasks }}/pull_registry.yml"

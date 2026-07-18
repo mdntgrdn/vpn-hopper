@@ -1,0 +1,37 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "api": {
+    "tag": "api",
+    "services": ["HandlerService"]
+  },
+  "inbounds": [
+{% include '_api_inbound.json.j2' %}
+{% include '_inbound.json.j2' %}
+  ],
+  "outbounds": [
+    {
+      "tag": "direct-awg",
+      "protocol": "freedom",
+      "streamSettings": {
+        "sockopt": {
+          "mark": {{ routing_mark }}
+        }
+      }
+    },
+    {
+      "protocol": "freedom",
+      "tag": "api"
+    }
+  ],
+  "routing": {
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["api"],
+        "outboundTag": "api"
+      }
+    ]
+  }
+}

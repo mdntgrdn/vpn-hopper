@@ -1,0 +1,13 @@
+---
+- name: Deploy AWG gateway client configuration
+  ansible.builtin.copy:
+    src: "{{ awg_configs_src }}/{{ inventory_hostname }}.client.conf"
+    dest: "{{ awg_dir }}/{{ awg_client_interface }}.conf"
+    mode: "0600"
+
+- name: Start AWG gateway client container
+  ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/run_container.yml"
+  vars:
+    awg_deploy_conf_basename: "{{ awg_client_interface }}.conf"
+    docker_container_name: "{{ awg_client_interface }}"
+    awg_wg_interface: "{{ awg_client_interface }}"

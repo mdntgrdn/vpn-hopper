@@ -1,0 +1,25 @@
+---
+- name: Update chain_runtime from server keys
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -m
+      - scripts.lib.wg.build_runtime
+      - --chain
+      - "{{ awg_chain_name }}"
+  environment:
+    PYTHONPATH: "{{ awg_pythonpath }}"
+  changed_when: false
+
+- name: Neighbor node public keys manifest
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -m
+      - scripts.lib.wg.peer_keys_manifest
+      - --chain
+      - "{{ awg_chain_name }}"
+  environment:
+    PYTHONPATH: "{{ awg_pythonpath }}"
+  changed_when: false
+  when: chain_awg_chain_server_hosts | default([]) | length > 0

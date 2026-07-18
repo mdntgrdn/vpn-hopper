@@ -1,0 +1,28 @@
+---
+# One wg_peer_batch item: generate an AWG client key pair on the entry node and
+# stash it in-memory (wg_client_keys fact). No key files are written on the
+# server; the private key is stored in awg_clients.yml on the controller.
+- name: Generate AWG client key pair
+  ansible.builtin.command:
+    argv:
+      - docker
+      - run
+      - --rm
+      - "{{ docker_image_name }}"
+      - sh
+      - -c
+      - 'priv=$(awg genkey); printf "%s %s" "$priv" "$(printf "%s" "$priv" | awg pubkey)"'
+  register: _wg_keygen
+  changed_when: true
+  no_log: true
+
+- name: Stash keypair for this peer
+  ansible.builtin.set_fact:
+    wg_client_keys: >-
+      {{ (wg_client_keys | default({})) | combine({
+           peer_item.wg_peer_id: {
+             'private': (_wg_keygen.stdout.split(' ') | first),
+             'public': (_wg_keygen.stdout.split(' ') | last)
+           }
+         }) }}
+  no_log: true

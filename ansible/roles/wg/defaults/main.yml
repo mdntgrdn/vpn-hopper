@@ -1,0 +1,17 @@
+---
+awg_components_root: "{{ awg_ansible_root }}/components"
+awg_dockerfile_src: "{{ awg_components_root }}/awg/docker/Dockerfile"
+awg_deploy_conf_basename: "{{ awg_chain_name }}.conf"
+awg_dir: "{{ deploy_dir }}/awg"
+
+docker_image_name: "{{ awg_chain_name }}"
+docker_container_name: "{{ awg_chain_name }}"
+docker_container_config_mount_dest: /etc/amnezia/amneziawg
+docker_net_tun_device: /dev/net/tun
+
+awg_remote_host_keys_dir: "{{ awg_dir }}/keys"
+awg_remote_awg_clients: "{{ awg_dir }}/awg_clients.yml"
+awg_remote_wg_client_keys_dir: "{{ awg_dir }}/wg_client_keys"
+awg_remote_peers_dir: "{{ awg_dir }}/peers"
+
+wg_client_dns: "1.1.1.1"

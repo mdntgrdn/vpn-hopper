@@ -1,0 +1,9 @@
+---
+- name: Set up certbot auto-renewal cron job (restart wrapper after renew)
+  ansible.builtin.cron:
+    name: "certbot-renew-{{ vless_grpc_container_name }}"
+    minute: "17"
+    hour: "3"
+    job: >-
+      certbot renew --config-dir {{ vless_grpc_letsencrypt_dir }} --quiet
+      --deploy-hook 'docker restart {{ vless_grpc_container_name }}'

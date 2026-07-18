@@ -1,0 +1,23 @@
+---
+# Paths for any stack playbook at ansible/roles/<stack>/playbook.yml
+awg_ansible_root: "{{ playbook_dir | dirname | dirname }}"
+awg_repo_root: "{{ awg_ansible_root | dirname }}"
+awg_pythonpath: "{{ awg_repo_root }}"
+
+awg_roles_root: "{{ awg_ansible_root }}/roles"
+awg_roles_common_tasks: "{{ awg_roles_root }}/common/tasks"
+awg_roles_wg_tasks: "{{ awg_roles_root }}/wg/tasks"
+
+awg_root: "{{ awg_ansible_root }}/chains/{{ awg_chain_name }}"
+awg_work_root: "{{ awg_root }}/.work"
+awg_work_artifacts: "{{ awg_work_root }}/artifacts"
+awg_work_configs: "{{ awg_work_root }}/configs"
+awg_work_group_vars: "{{ awg_work_root }}/group_vars"
+awg_work_chain_generated: "{{ awg_work_group_vars }}/chain_generated.yml"
+awg_work_peer_keys_manifest: "{{ awg_work_root }}/peer_public_keys_manifest.yml"
+awg_work_mirror: "{{ awg_work_root }}/mirror"
+awg_artifacts: "{{ awg_work_artifacts }}"
+awg_configs_src: "{{ awg_work_configs }}"
+
+deploy_root: "/opt/vpn-hopper"
+deploy_dir: "{{ deploy_root }}/{{ awg_chain_name }}"

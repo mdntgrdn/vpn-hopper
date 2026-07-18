@@ -1,0 +1,23 @@
+---
+# Remove the vless-http wrapper container, image and its config directory.
+# The AWG teardown removes the whole deploy_dir; this kills the extra container
+# and image that live outside the AWG container lifecycle.
+
+- name: Remove vless-http container
+  ansible.builtin.command:
+    argv: [docker, rm, "-f", "{{ vless_http_container_name }}"]
+  register: _vless_http_destroy_rm
+  changed_when: _vless_http_destroy_rm.rc | int == 0
+  failed_when: false
+
+- name: Remove vless-http Docker image
+  ansible.builtin.command:
+    argv: [docker, rmi, "-f", "{{ vless_http_docker_image_name }}"]
+  register: _vless_http_destroy_rmi
+  changed_when: _vless_http_destroy_rmi.rc | int == 0
+  failed_when: false
+
+- name: Remove vless-http directory
+  ansible.builtin.file:
+    path: "{{ vless_http_dir }}"
+    state: absent

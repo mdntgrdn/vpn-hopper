@@ -1,0 +1,14 @@
+{
+  "inbounds": [
+    {
+      "tag": "{{ xray_inbound_tag }}",
+      "protocol": "vless",
+      "listen": "0.0.0.0",
+      "port": {{ xray_vless_listen_port }},
+      "settings": {
+        "decryption": "none",
+        "clients": {{ xray_adu_clients | to_json }}
+      }
+    }
+  ]
+}

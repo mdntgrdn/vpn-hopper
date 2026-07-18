@@ -1,0 +1,32 @@
+[Interface]
+PrivateKey = {{ private_key }}
+Address = {{ tunnel_address }}
+MTU = 1280
+Table = off
+
+Jc = 7
+Jmin = 45
+Jmax = 190
+S1 = 68
+S2 = 52
+S3 = 28
+S4 = 12
+H1 = 52345678
+H2 = 62345678
+H3 = 72345678
+H4 = 82345678
+
+# Applied on awg-quick up (VLESS routing_mark → table → this tunnel)
+PostUp = ip rule add fwmark {{ routing_table }} table {{ routing_table }} || true
+PostUp = ip route replace default dev {{ wg_interface }} table {{ routing_table }} || true
+PostUp = iptables -t nat -C POSTROUTING -m mark --mark {{ routing_table }} -o {{ wg_interface }} -j SNAT --to-source {{ snat_source_ip }} 2>/dev/null || iptables -t nat -A POSTROUTING -m mark --mark {{ routing_table }} -o {{ wg_interface }} -j SNAT --to-source {{ snat_source_ip }}
+
+PostDown = iptables -t nat -D POSTROUTING -m mark --mark {{ routing_table }} -o {{ wg_interface }} -j SNAT --to-source {{ snat_source_ip }} || true
+PostDown = ip rule del fwmark {{ routing_table }} table {{ routing_table }} || true
+PostDown = ip route del default dev {{ wg_interface }} table {{ routing_table }} || true
+
+[Peer]
+PublicKey = {{ server_public_key }}
+Endpoint = {{ server_endpoint }}
+AllowedIPs = {{ allowed_ips }}
+PersistentKeepalive = 25

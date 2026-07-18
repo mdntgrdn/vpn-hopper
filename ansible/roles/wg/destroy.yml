@@ -1,0 +1,19 @@
+---
+# Tear down a homogeneous AWG (WG) body chain on all nodes.
+# Entry: python3 scripts/destroy_chain.py --chain NAME [--yes]
+
+- name: Destroy AWG body on chain nodes
+  hosts: "{{ awg_chain_name }}"
+  become: true
+  gather_facts: false
+  serial: 1
+  order: reverse_inventory
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import WG host teardown
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/destroy_host.yml"

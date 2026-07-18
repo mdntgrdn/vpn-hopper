@@ -1,0 +1,43 @@
+---
+# Push the rendered config.json to the wrapper host and (re)create the container.
+
+- name: vless-http config directory
+  ansible.builtin.file:
+    path: "{{ vless_http_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Stat vless-http config path on node
+  ansible.builtin.stat:
+    path: "{{ vless_http_config_path }}"
+  register: _vless_http_config_path_stat
+
+- name: Remove spurious config.json directory
+  ansible.builtin.file:
+    path: "{{ vless_http_config_path }}"
+    state: absent
+  when:
+    - _vless_http_config_path_stat.stat.exists | default(false)
+    - _vless_http_config_path_stat.stat.isdir | default(false)
+
+- name: Deploy vless-http configuration
+  ansible.builtin.copy:
+    src: "{{ awg_work_vless_http_configs }}/{{ inventory_hostname }}.json"
+    dest: "{{ vless_http_config_path }}"
+    mode: "0644"
+
+- name: Assert vless-http config is a regular file
+  ansible.builtin.stat:
+    path: "{{ vless_http_config_path }}"
+  register: _vless_http_config_file_stat
+
+- name: vless-http config must be a file before starting container
+  ansible.builtin.assert:
+    that:
+      - _vless_http_config_file_stat.stat.exists | default(false)
+      - _vless_http_config_file_stat.stat.isreg | default(false)
+    fail_msg: >-
+      {{ vless_http_config_path }} is missing or not a file.
+
+- name: Run vless-http container
+  ansible.builtin.import_tasks: "{{ awg_roles_vless_http_tasks }}/run_container.yml"

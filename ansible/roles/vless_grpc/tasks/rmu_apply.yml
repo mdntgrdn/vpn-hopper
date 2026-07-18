@@ -1,0 +1,30 @@
+---
+# Hot-remove vless-grpc users from the running container via `xray api rmu`.
+
+- name: Assert vless-grpc container is running
+  ansible.builtin.command:
+    argv:
+      - docker
+      - container
+      - inspect
+      - "-f"
+      - "{{ '{{' }}.State.Running{{ '}}' }}"
+      - "{{ vless_grpc_container_name }}"
+  register: _vless_grpc_running
+  changed_when: false
+  failed_when: >-
+    (_vless_grpc_running.rc | int != 0)
+    or ((_vless_grpc_running.stdout | default('') | trim | lower) != 'true')
+
+- name: Remove vless-grpc users via xray api rmu
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker exec "{{ vless_grpc_container_name }}" \
+      xray api rmu -s 127.0.0.1:{{ vless_grpc_api_port }} -tag={{ vless_grpc_inbound_tag }} \
+      {{ vless_rmu_emails | join(' ') }}
+  args:
+    executable: /bin/bash
+  register: _vless_grpc_rmu_apply
+  changed_when: true
+  failed_when: _vless_grpc_rmu_apply.rc | int != 0
+  when: vless_rmu_emails | default([]) | length > 0

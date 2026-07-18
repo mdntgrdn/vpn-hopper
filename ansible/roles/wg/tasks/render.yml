@@ -1,0 +1,37 @@
+---
+- name: Build AWG config files
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -m
+      - scripts.lib.wg.render_configs
+      - --chain
+      - "{{ awg_chain_name }}"
+  environment:
+    PYTHONPATH: "{{ awg_pythonpath }}"
+  register: _wg_render_configs
+  changed_when: false
+
+- name: Abort when render_wg_configs failed
+  ansible.builtin.fail:
+    msg: >-
+      render_wg_body_configs exited with rc={{ _wg_render_configs.rc }}.
+      {{ (_wg_render_configs.stderr | default('') + _wg_render_configs.stdout | default('')) | trim }}
+  when: (_wg_render_configs.rc | default(0) | int) != 0
+
+- name: Verify AWG server configs exist after render
+  ansible.builtin.stat:
+    path: "{{ awg_configs_src }}/{{ item }}.conf"
+  register: _wg_rendered_conf
+  loop: "{{ chain_awg_deploy_hosts | default([]) }}"
+  when: chain_awg_deploy_hosts | default([]) | length > 0
+
+- name: Abort when AWG config file missing on controller
+  ansible.builtin.fail:
+    msg: >-
+      Missing {{ awg_configs_src }}/{{ item.item }}.conf after render.
+      Re-run: PYTHONPATH=. python3 -m scripts.lib.wg.render_configs --chain {{ awg_chain_name }}
+  loop: "{{ _wg_rendered_conf.results | default([]) }}"
+  when:
+    - item.stat is defined
+    - not item.stat.exists | default(false)

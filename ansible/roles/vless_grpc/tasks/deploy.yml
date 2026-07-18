@@ -1,0 +1,43 @@
+---
+# Push the rendered config.json to the wrapper host and (re)create the container.
+
+- name: vless-grpc config directory
+  ansible.builtin.file:
+    path: "{{ vless_grpc_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Stat vless-grpc config path on node
+  ansible.builtin.stat:
+    path: "{{ vless_grpc_config_path }}"
+  register: _vless_grpc_config_path_stat
+
+- name: Remove spurious config.json directory
+  ansible.builtin.file:
+    path: "{{ vless_grpc_config_path }}"
+    state: absent
+  when:
+    - _vless_grpc_config_path_stat.stat.exists | default(false)
+    - _vless_grpc_config_path_stat.stat.isdir | default(false)
+
+- name: Deploy vless-grpc configuration
+  ansible.builtin.copy:
+    src: "{{ awg_work_vless_grpc_configs }}/{{ inventory_hostname }}.json"
+    dest: "{{ vless_grpc_config_path }}"
+    mode: "0644"
+
+- name: Assert vless-grpc config is a regular file
+  ansible.builtin.stat:
+    path: "{{ vless_grpc_config_path }}"
+  register: _vless_grpc_config_file_stat
+
+- name: vless-grpc config must be a file before starting container
+  ansible.builtin.assert:
+    that:
+      - _vless_grpc_config_file_stat.stat.exists | default(false)
+      - _vless_grpc_config_file_stat.stat.isreg | default(false)
+    fail_msg: >-
+      {{ vless_grpc_config_path }} is missing or not a file.
+
+- name: Run vless-grpc container
+  ansible.builtin.import_tasks: "{{ awg_roles_vless_grpc_tasks }}/run_container.yml"

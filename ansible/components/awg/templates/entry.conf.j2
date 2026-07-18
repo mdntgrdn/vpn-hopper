@@ -1,0 +1,71 @@
+[Interface]
+Address = {{ tunnel_address }}
+PrivateKey = {{ private_key }}
+ListenPort = {{ listen_port }}
+MTU = 1280
+Table = off
+
+Jc = 7
+Jmin = 45
+Jmax = 190
+S1 = 68
+S2 = 52
+S3 = 28
+S4 = 12
+H1 = 52345678
+H2 = 62345678
+H3 = 72345678
+H4 = 82345678
+
+PostUp = ip rule add from {{ client_subnet }} table {{ routing_table }} || true
+PostUp = ip route replace default dev {{ awg_chain_name }} table {{ routing_table }} || true
+PostUp = ip route replace {{ client_subnet }} dev {{ awg_chain_name }} || true
+PostUp = ip rule add fwmark {{ routing_table }} table {{ routing_table }} || true
+PostUp = iptables -t nat -C POSTROUTING -m mark --mark {{ routing_table }} -o {{ awg_chain_name }} -j SNAT --to-source {{ snat_source_ip }} 2>/dev/null || iptables -t nat -A POSTROUTING -m mark --mark {{ routing_table }} -o {{ awg_chain_name }} -j SNAT --to-source {{ snat_source_ip }}
+PostUp = iptables -C FORWARD -i {{ awg_chain_name }} -o {{ awg_chain_name }} -j ACCEPT 2>/dev/null || iptables -I FORWARD 1 -i {{ awg_chain_name }} -o {{ awg_chain_name }} -j ACCEPT
+# Fail-closed kill-switch: client/marked traffic may egress ONLY via the tunnel.
+# If the policy ip-rules are ever flushed (e.g. a systemd-networkd restart after
+# an unattended upgrade), these DROP the traffic instead of letting it leak out
+# the local WAN. networkd does not touch iptables, so they survive such a flush.
+PostUp = iptables -C FORWARD -s {{ client_subnet }} ! -o {{ awg_chain_name }} -j DROP 2>/dev/null || iptables -I FORWARD 1 -s {{ client_subnet }} ! -o {{ awg_chain_name }} -j DROP
+PostUp = iptables -t mangle -C POSTROUTING -m mark --mark {{ routing_table }} ! -o {{ awg_chain_name }} -j DROP 2>/dev/null || iptables -t mangle -A POSTROUTING -m mark --mark {{ routing_table }} ! -o {{ awg_chain_name }} -j DROP
+PostDown = ip rule del fwmark {{ routing_table }} table {{ routing_table }} || true
+PostDown = iptables -t nat -D POSTROUTING -m mark --mark {{ routing_table }} -o {{ awg_chain_name }} -j SNAT --to-source {{ snat_source_ip }} || true
+PostDown = iptables -D FORWARD -i {{ awg_chain_name }} -o {{ awg_chain_name }} -j ACCEPT || true
+PostDown = iptables -D FORWARD -s {{ client_subnet }} ! -o {{ awg_chain_name }} -j DROP || true
+PostDown = iptables -t mangle -D POSTROUTING -m mark --mark {{ routing_table }} ! -o {{ awg_chain_name }} -j DROP || true
+PostDown = ip rule del from {{ client_subnet }} table {{ routing_table }} || true
+PostDown = ip route del default dev {{ awg_chain_name }} table {{ routing_table }} || true
+PostDown = ip route del {{ client_subnet }} dev {{ awg_chain_name }} || true
+
+# Uplink toward chain (selectel / next hop)
+[Peer]
+PublicKey = {{ peer_up_public_key }}
+Endpoint = {{ upstream_endpoint }}
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 25
+{% for g in gateway_peers | default([]) %}
+
+# Gateway {{ g.username }}
+[Peer]
+PublicKey = {{ g.public_key }}
+AllowedIPs = {{ g.allowed_ips }}
+PersistentKeepalive = 25
+{% endfor %}
+{% for c in wg_clients %}
+
+{% if c.get('username') %}
+# {{ c.username }}
+{% elif c.get('comment') %}
+# {{ c.comment }}
+{% endif %}
+{% if c.get('username') and c.get('comment') %}
+# {{ c.comment }}
+{% endif %}
+[Peer]
+PublicKey = {{ c.public_key }}
+AllowedIPs = {{ c.allowed_ips }}
+{% if c.get('persistent_keepalive') is not none %}
+PersistentKeepalive = {{ c.persistent_keepalive }}
+{% endif %}
+{% endfor %}

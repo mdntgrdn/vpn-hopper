@@ -1,0 +1,25 @@
+---
+# vless_clients.yml lives on the wrapper host — fetch it into the work area.
+
+- name: Check vless_clients on wrapper host
+  ansible.builtin.stat:
+    path: "{{ vless_http_vless_clients }}"
+  register: _vless_clients_stat
+
+- name: Fetch vless_clients from wrapper into work area
+  ansible.builtin.fetch:
+    src: "{{ vless_http_vless_clients }}"
+    dest: "{{ awg_work_group_vars }}/vless_clients.yml"
+    flat: true
+  when: _vless_clients_stat.stat.exists | default(false)
+
+- name: Empty vless_clients registry (first deploy, no clients yet)
+  ansible.builtin.copy:
+    dest: "{{ awg_work_group_vars }}/vless_clients.yml"
+    mode: "0600"
+    content: |
+      vless_http_clients: {}
+  delegate_to: localhost
+  vars:
+    ansible_become: false
+  when: not (_vless_clients_stat.stat.exists | default(false))

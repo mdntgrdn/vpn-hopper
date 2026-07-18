@@ -1,0 +1,148 @@
+---
+# Deploy homogeneous AWG (WG) body chain.
+# Entry: python3 scripts/run_ansible.py --chain NAME
+
+- name: Prepare temporary work area on controller
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import common prepare
+      ansible.builtin.import_tasks: "{{ awg_roles_common_tasks }}/prepare.yml"
+
+- name: Check AWG chain node state
+  hosts: "{{ awg_chain_name }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import WG runtime check
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/runtime_check.yml"
+
+- name: Bootstrap AWG chain nodes
+  hosts: "{{ awg_chain_name }}"
+  become: true
+  gather_facts: true
+  serial: 1
+  order: reverse_inventory
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import WG node bootstrap
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/bootstrap.yml"
+
+- name: Pull AWG secrets into temporary work area
+  hosts: "{{ awg_chain_name }}"
+  become: true
+  gather_facts: false
+  serial: 1
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import WG secrets pull
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/pull_secrets.yml"
+
+- name: Pull awg_clients from chain entry
+  hosts: "{{ chain_entry_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import awg_clients pull
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/pull_awg_clients.yml"
+
+- name: Build chain_runtime and peer key manifest
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import WG build_runtime
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/build_runtime.yml"
+
+- name: Store neighbor public keys on nodes
+  hosts: "{{ awg_chain_name }}"
+  become: true
+  gather_facts: false
+  serial: 1
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+    - "{{ awg_work_peer_keys_manifest }}"
+  tasks:
+    - name: Import WG push peer keys
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/push_peer_keys.yml"
+
+- name: Render AWG configs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import WG render
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/render.yml"
+
+- name: Deploy AWG body to chain nodes
+  hosts: "{{ awg_chain_name }}"
+  become: true
+  gather_facts: false
+  serial: 1
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import WG deploy body
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/deploy_body.yml"
+
+- name: Clean up temporary work area on controller
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+  tasks:
+    - name: Import common cleanup
+      ansible.builtin.import_tasks: "{{ awg_roles_common_tasks }}/cleanup.yml"

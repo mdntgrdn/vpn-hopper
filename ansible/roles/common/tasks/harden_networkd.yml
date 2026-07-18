@@ -1,0 +1,29 @@
+---
+# Stop systemd-networkd from flushing "foreign" routing policy rules / routes on
+# (re)start. The AWG chain installs its policy-routing `ip rule`s and table routes
+# via awg-quick PostUp; networkd's default ManageForeignRoutingPolicyRules=yes
+# silently deletes them whenever it restarts (e.g. after an unattended systemd
+# upgrade), which breaks multi-hop routing on entry/middle nodes.
+#
+# Idempotent and non-disruptive: we only write the drop-in (no networkd restart),
+# so it takes effect on the next networkd (re)start — exactly the moment it must
+# prevent the flush. The chain's iptables kill-switch (entry/middle PostUp) is the
+# independent fail-closed backstop if the rules are ever dropped anyway.
+- name: Ensure systemd-networkd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/networkd.conf.d
+    state: directory
+    mode: "0755"
+
+- name: Keep AWG policy rules/routes across systemd-networkd restarts
+  ansible.builtin.copy:
+    dest: /etc/systemd/networkd.conf.d/10-keep-awg-policy-rules.conf
+    mode: "0644"
+    content: |
+      # Managed by vpn-hopper.
+      # Do not let systemd-networkd flush the policy-routing rules/routes that
+      # awg-quick PostUp installs for multi-hop chains. Without this, a networkd
+      # restart (e.g. after a systemd upgrade) silently breaks the chain.
+      [Network]
+      ManageForeignRoutingPolicyRules=no
+      ManageForeignRoutes=no

@@ -1,0 +1,11 @@
+---
+- name: Deploy AWG server configuration
+  ansible.builtin.copy:
+    src: "{{ awg_configs_src }}/{{ inventory_hostname }}.conf"
+    dest: "{{ awg_dir }}/{{ awg_deploy_conf_basename }}"
+    mode: "0600"
+
+- name: Start AWG server container
+  ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/run_container.yml"
+  vars:
+    awg_wg_interface: "{{ awg_chain_name }}"

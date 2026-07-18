@@ -1,0 +1,62 @@
+---
+- name: vless-http image build directory
+  ansible.builtin.file:
+    path: "{{ vless_http_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Copy vless-http Dockerfile
+  ansible.builtin.copy:
+    src: "{{ vless_http_dockerfile_src }}"
+    dest: "{{ vless_http_dir }}/Dockerfile"
+    mode: "0644"
+
+- name: Check Docker CLI availability
+  ansible.builtin.command:
+    argv:
+      - docker
+      - --version
+  register: _vless_http_docker_cli
+  changed_when: false
+  failed_when: false
+
+- name: Install Docker on Debian
+  when:
+    - _vless_http_docker_cli.rc != 0
+    - ansible_facts["os_family"] == "Debian"
+  ansible.builtin.apt:
+    name: docker.io
+    state: present
+    update_cache: true
+
+- name: Install Docker on other OS families
+  when:
+    - _vless_http_docker_cli.rc != 0
+    - ansible_facts["os_family"] != "Debian"
+  ansible.builtin.package:
+    name: docker
+    state: present
+
+- name: Start and enable docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Check vless-http image exists
+  ansible.builtin.command:
+    argv:
+      - docker
+      - image
+      - inspect
+      - "{{ vless_http_docker_image_name }}"
+  register: _vless_http_image_built
+  changed_when: false
+  failed_when: false
+
+- name: Build vless-http container image
+  ansible.builtin.command:
+    cmd: docker build -t {{ vless_http_docker_image_name }} .
+    chdir: "{{ vless_http_dir }}"
+  changed_when: true
+  when: _vless_http_image_built.rc | int != 0

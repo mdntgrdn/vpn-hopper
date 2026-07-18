@@ -1,0 +1,17 @@
+---
+# Fetch awg_clients.yml from chain entry into .work/group_vars (list / validate).
+# Entry: python3 scripts/list_clients.py --chain NAME
+
+- name: Pull awg_clients from chain entry
+  hosts: "{{ wg_entry_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import awg_clients pull
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/pull_awg_clients.yml"

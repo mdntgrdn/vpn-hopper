@@ -1,0 +1,22 @@
+---
+# Hot-remove vless-grpc client(s) on the wrapper host.
+# Internal: called from scripts/lib/vless_grpc/remove_clients.py after the
+# registry and config.json have been updated in the work area.
+
+- name: Push registry, persist config, hot-remove users
+  hosts: "{{ vless_wrapper_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+    vless_rmu_emails: "{{ vless_rmu_emails | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Push registry and persist rendered config
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_grpc_tasks }}/push_registry.yml"
+
+    - name: Hot-remove users via rmu
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_grpc_tasks }}/rmu_apply.yml"

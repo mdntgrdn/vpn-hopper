@@ -1,0 +1,55 @@
+---
+- name: Remove existing vless-http container (recreate with current config.json)
+  ansible.builtin.command:
+    argv: [docker, rm, -f, "{{ vless_http_container_name }}"]
+  register: _vless_http_removed
+  failed_when: false
+  changed_when: _vless_http_removed.rc | int == 0
+
+- name: Start vless-http container
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker run -d \
+      --name "{{ vless_http_container_name }}" \
+      --restart unless-stopped \
+      --network host \
+      -u root \
+      --cap-add NET_ADMIN \
+      --cap-add NET_RAW \
+      -v "{{ vless_http_config_path }}:{{ vless_http_config_mount_dest }}:ro" \
+      -v "{{ vless_http_letsencrypt_dir }}:{{ vless_http_letsencrypt_dir }}:ro" \
+      "{{ vless_http_docker_image_name }}" \
+      run -config {{ vless_http_config_mount_dest }}
+  args:
+    executable: /bin/bash
+  changed_when: true
+
+- name: Assert vless-http container running status
+  ansible.builtin.command:
+    argv:
+      - docker
+      - container
+      - inspect
+      - "-f"
+      - "{{ '{{' }}.State.Status{{ '}}' }}"
+      - "{{ vless_http_container_name }}"
+  register: _vless_http_status
+  changed_when: false
+  failed_when: false
+
+- name: Fetch recent vless-http container logs (on failure)
+  ansible.builtin.command:
+    argv: [docker, logs, "--tail", "60", "{{ vless_http_container_name }}"]
+  register: _vless_http_logs
+  changed_when: false
+  failed_when: false
+  when: (_vless_http_status.stdout | default('') | trim) != 'running'
+
+- name: vless-http container is not running
+  ansible.builtin.fail:
+    msg: >-
+      Container {{ vless_http_container_name }} status={{ _vless_http_status.stdout | default('unknown') | trim }}
+      (expected running). Config: {{ vless_http_config_path }}.
+      Recent logs:
+      {{ _vless_http_logs.stdout | default('') }}{{ _vless_http_logs.stderr | default('') }}
+  when: (_vless_http_status.stdout | default('') | trim) != 'running'

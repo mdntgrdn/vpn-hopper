@@ -1,0 +1,23 @@
+---
+# Remove the vless-grpc wrapper container, image and its config directory.
+# The AWG teardown removes the whole deploy_dir; this kills the extra container
+# and image that live outside the AWG container lifecycle.
+
+- name: Remove vless-grpc container
+  ansible.builtin.command:
+    argv: [docker, rm, "-f", "{{ vless_grpc_container_name }}"]
+  register: _vless_grpc_destroy_rm
+  changed_when: _vless_grpc_destroy_rm.rc | int == 0
+  failed_when: false
+
+- name: Remove vless-grpc Docker image
+  ansible.builtin.command:
+    argv: [docker, rmi, "-f", "{{ vless_grpc_docker_image_name }}"]
+  register: _vless_grpc_destroy_rmi
+  changed_when: _vless_grpc_destroy_rmi.rc | int == 0
+  failed_when: false
+
+- name: Remove vless-grpc directory
+  ansible.builtin.file:
+    path: "{{ vless_grpc_dir }}"
+    state: absent

@@ -1,0 +1,82 @@
+---
+# Host catalog + chains (homogeneous AWG, optional vless-http wrapper).
+# cp chains.yaml.example chains.yaml
+#
+# Deploy dir on each node: /opt/vpn-hopper/<chains.<name>>/
+#   awg/                       — AmneziaWG server config, keys, awg_clients.yml
+#   vless-http/ | vless-grpc/  — Xray wrapper config, certs, vless_clients.yml
+#                                (only on the wrapper hop, named by protocol)
+#
+# A chain is an ordered path of AWG hops: entry -> middle... -> exit.
+# Each hop runs one awg/server segment. Write it inline as `protocol: awg`;
+# role defaults to server and position (entry|middle|exit) is inferred from
+# path order.
+#
+# The entry hop may carry an optional `wrapper:` — vless-http (raw TCP + XTLS
+# Vision) or vless-grpc (gRPC transport). It deploys a standalone Xray TLS
+# container on the entry node that terminates VLESS and forwards all traffic
+# into the local AWG tunnel via the chain fwmark — so clients can reach the
+# chain over TLS/443 instead of raw WireGuard. One wrapper per chain.
+#
+# VPN clients are NOT in chains.yaml — add them with add_clients.py:
+#   awg_clients.yml (AWG peers) / vless_clients.yml (vless-http) on the entry host.
+
+hosts:
+  entry:
+    host: 203.0.113.10
+    user: deploy
+    ssh_private_key_file: ~/.ssh/id_ed25519
+    public_ip: 203.0.113.10
+
+  middle:
+    host: 198.51.100.20
+    user: root
+    ssh_private_key_file: ~/.ssh/id_ed25519
+    public_ip: 198.51.100.20
+
+  exit:
+    host: 192.0.2.30
+    user: root
+    ssh_private_key_file: ~/.ssh/id_ed25519
+    public_ip: 192.0.2.30
+
+chains:
+  # Plain AWG chain (entry -> middle -> exit).
+  example-awg:
+    awg:
+      base_port: 51830
+      tunnel_subnet: "10.60.0.0/29"
+      routing_table: 200
+      wan_iface: eth0
+      client_subnet: "10.50.0.0/16"
+    path:
+      - host: entry
+        protocol: awg
+      - host: middle
+        protocol: awg
+      - host: exit
+        protocol: awg
+
+  # Same chain, but the entry hop is wrapped in vless-http (Xray TLS on :443).
+  # The wrapper is deployed last, as a separate layer; the AWG body is unchanged.
+  example-wrapped:
+    awg:
+      base_port: 51840
+      tunnel_subnet: "10.60.0.8/29"
+      routing_table: 201
+      wan_iface: eth0
+      client_subnet: "10.51.0.0/16"
+    path:
+      - host: entry
+        wrapper:
+          protocol: vless-grpc           # or vless-http
+          listen_port: 443
+          server_name: vpn.example.com   # required (TLS SNI; Let's Encrypt by default)
+          service_name: grpc             # vless-grpc only (gRPC path; default "grpc")
+          # cert_file: /path/fullchain.pem  # optional — skip certbot if both given
+          # key_file:  /path/privkey.pem
+        protocol: awg
+      - host: middle
+        protocol: awg
+      - host: exit
+        protocol: awg

@@ -1,0 +1,25 @@
+    {
+      "listen": "0.0.0.0",
+      "port": {{ listen_port }},
+      "protocol": "vless",
+{%- if inbound_tag %}
+      "tag": "{{ inbound_tag }}",
+{%- endif %}
+      "settings": {
+        "clients": {{ clients | tojson }},
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "alpn": {{ tls_alpn | tojson }},
+          "certificates": [
+            {
+              "certificateFile": "{{ tls_cert_file }}",
+              "keyFile": "{{ tls_key_file }}"
+            }
+          ]
+        }
+      }
+    }

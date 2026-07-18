@@ -1,0 +1,26 @@
+{% if client_username %}
+# {{ client_username }}
+{% endif %}
+[Interface]
+Address = {{ client_address }}
+PrivateKey = {{ client_private_key }}
+DNS = {{ client_dns }}
+MTU = 1280
+
+Jc = 7
+Jmin = 45
+Jmax = 190
+S1 = 68
+S2 = 52
+S3 = 28
+S4 = 12
+H1 = 52345678
+H2 = 62345678
+H3 = 72345678
+H4 = 82345678
+
+[Peer]
+PublicKey = {{ server_public_key }}
+Endpoint = {{ server_endpoint }}
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 25

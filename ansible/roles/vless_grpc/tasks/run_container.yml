@@ -1,0 +1,55 @@
+---
+- name: Remove existing vless-grpc container (recreate with current config.json)
+  ansible.builtin.command:
+    argv: [docker, rm, -f, "{{ vless_grpc_container_name }}"]
+  register: _vless_grpc_removed
+  failed_when: false
+  changed_when: _vless_grpc_removed.rc | int == 0
+
+- name: Start vless-grpc container
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker run -d \
+      --name "{{ vless_grpc_container_name }}" \
+      --restart unless-stopped \
+      --network host \
+      -u root \
+      --cap-add NET_ADMIN \
+      --cap-add NET_RAW \
+      -v "{{ vless_grpc_config_path }}:{{ vless_grpc_config_mount_dest }}:ro" \
+      -v "{{ vless_grpc_letsencrypt_dir }}:{{ vless_grpc_letsencrypt_dir }}:ro" \
+      "{{ vless_grpc_docker_image_name }}" \
+      run -config {{ vless_grpc_config_mount_dest }}
+  args:
+    executable: /bin/bash
+  changed_when: true
+
+- name: Assert vless-grpc container running status
+  ansible.builtin.command:
+    argv:
+      - docker
+      - container
+      - inspect
+      - "-f"
+      - "{{ '{{' }}.State.Status{{ '}}' }}"
+      - "{{ vless_grpc_container_name }}"
+  register: _vless_grpc_status
+  changed_when: false
+  failed_when: false
+
+- name: Fetch recent vless-grpc container logs (on failure)
+  ansible.builtin.command:
+    argv: [docker, logs, "--tail", "60", "{{ vless_grpc_container_name }}"]
+  register: _vless_grpc_logs
+  changed_when: false
+  failed_when: false
+  when: (_vless_grpc_status.stdout | default('') | trim) != 'running'
+
+- name: vless-grpc container is not running
+  ansible.builtin.fail:
+    msg: >-
+      Container {{ vless_grpc_container_name }} status={{ _vless_grpc_status.stdout | default('unknown') | trim }}
+      (expected running). Config: {{ vless_grpc_config_path }}.
+      Recent logs:
+      {{ _vless_grpc_logs.stdout | default('') }}{{ _vless_grpc_logs.stderr | default('') }}
+  when: (_vless_grpc_status.stdout | default('') | trim) != 'running'

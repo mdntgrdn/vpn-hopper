@@ -1,0 +1,19 @@
+---
+- name: Deploy root directory on node
+  ansible.builtin.file:
+    path: "{{ deploy_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: AWG stack directory on node
+  ansible.builtin.file:
+    path: "{{ awg_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Deploy AWG server and container
+  ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/deploy_awg_server.yml"
+
+- name: Deploy AWG gateway client and container
+  ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/deploy_awg_client.yml"
+  when: chain_has_awg_client | default(false) | bool

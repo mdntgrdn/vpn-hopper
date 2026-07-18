@@ -1,0 +1,35 @@
+---
+# Issue a Let's Encrypt certificate (standalone, port 80) into the chain-local
+# letsencrypt dir, volume-mounted into the wrapper container.
+
+- name: Install certbot
+  ansible.builtin.package:
+    name: certbot
+    state: present
+
+- name: Check TLS certificate already exists
+  ansible.builtin.stat:
+    path: "{{ vless_grpc_cert_file }}"
+  register: _vless_grpc_cert_stat
+
+- name: Issue Let's Encrypt certificate (standalone, port 80)
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - certonly
+      - --standalone
+      - --non-interactive
+      - --agree-tos
+      - --register-unsafely-without-email
+      - --config-dir
+      - "{{ vless_grpc_letsencrypt_dir }}"
+      - -d
+      - "{{ vless_grpc_server_name }}"
+  when: not (_vless_grpc_cert_stat.stat.exists | default(false))
+  changed_when: true
+
+- name: Assert certificate file is present after certbot
+  ansible.builtin.stat:
+    path: "{{ vless_grpc_cert_file }}"
+  register: _vless_grpc_cert_after
+  failed_when: not (_vless_grpc_cert_after.stat.exists | default(false))

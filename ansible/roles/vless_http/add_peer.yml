@@ -1,0 +1,22 @@
+---
+# Hot-add vless-http client(s) on the wrapper host.
+# Internal: called from scripts/lib/vless_http/add_clients.py after the registry,
+# config.json and adu payload have been prepared in the work area.
+
+- name: Push registry, persist config, hot-add users
+  hosts: "{{ vless_wrapper_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+    vless_peer_batch: "{{ vless_peer_batch | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Push registry and persist rendered config
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_http_tasks }}/push_registry.yml"
+
+    - name: Hot-apply new users via adu
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_http_tasks }}/adu_apply.yml"

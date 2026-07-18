@@ -1,0 +1,100 @@
+---
+# Deploy the vless-http wrapper on the chain entry host.
+# Runs last, independently of the AWG body. Entry:
+#   python3 -m scripts.lib.vless_http.deploy_wrapper --chain NAME
+# (auto-invoked by scripts/run_ansible.py when the chain defines a wrapper).
+
+- name: Prepare temporary work area on controller
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import common prepare
+      ansible.builtin.import_tasks: "{{ awg_roles_common_tasks }}/prepare.yml"
+
+    - name: Controller vless-http config dir
+      ansible.builtin.file:
+        path: "{{ awg_work_vless_http_configs }}"
+        state: directory
+        mode: "0700"
+
+- name: Build wrapper image, issue cert, pull existing registry
+  hosts: "{{ vless_wrapper_host }}"
+  become: true
+  gather_facts: true
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Build vless-http image
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_http_tasks }}/docker_build.yml"
+
+    - name: Issue Let's Encrypt certificate
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_http_tasks }}/letsencrypt_cert.yml"
+      when: vless_http_use_certbot | bool
+
+    - name: Pull existing vless_clients registry
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_http_tasks }}/pull_registry.yml"
+
+- name: Render wrapper config on controller
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Render vless-http config.json
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -m
+          - scripts.lib.vless_http.render_config
+          - --chain
+          - "{{ awg_chain_name }}"
+      environment:
+        PYTHONPATH: "{{ awg_pythonpath }}"
+      changed_when: false
+
+- name: Deploy wrapper config and container
+  hosts: "{{ vless_wrapper_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Deploy config + run container
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_http_tasks }}/deploy.yml"
+
+    - name: Set up certbot renewal cron
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_http_tasks }}/letsencrypt_renew_cron.yml"
+      when: vless_http_use_certbot | bool
+
+- name: Clean up temporary work area on controller
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+  tasks:
+    - name: Import common cleanup
+      ansible.builtin.import_tasks: "{{ awg_roles_common_tasks }}/cleanup.yml"

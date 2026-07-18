@@ -1,0 +1,9 @@
+---
+- name: Check node SSH reachability
+  ansible.builtin.import_tasks: "{{ awg_roles_common_tasks }}/connect.yml"
+
+- name: Harden systemd-networkd against flushing chain policy rules
+  ansible.builtin.import_tasks: "{{ awg_roles_common_tasks }}/harden_networkd.yml"
+
+- name: Build AWG image and generate node keys
+  ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/docker_build_keys.yml"

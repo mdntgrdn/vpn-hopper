@@ -1,0 +1,34 @@
+---
+# vless-http wrapper (Xray) deployed on the chain entry host.
+awg_components_root: "{{ awg_ansible_root }}/components"
+awg_roles_vless_http_tasks: "{{ awg_roles_root }}/vless_http/tasks"
+
+vless_http_components_root: "{{ awg_components_root }}/vless-http"
+vless_http_dockerfile_src: "{{ vless_http_components_root }}/docker/Dockerfile"
+
+vless_http_dir: "{{ deploy_dir }}/vless-http"
+vless_http_config_path: "{{ vless_http_dir }}/config.json"
+vless_http_config_mount_dest: /usr/local/etc/xray/config.json
+vless_http_letsencrypt_dir: "{{ vless_http_dir }}/letsencrypt"
+vless_http_vless_clients: "{{ vless_http_dir }}/vless_clients.yml"
+
+vless_http_docker_image_name: "{{ awg_chain_name }}-vless-http"
+vless_http_container_name: "{{ awg_chain_name }}-vless-http"
+vless_http_api_port: 10086
+vless_http_inbound_tag: "vless-in"
+
+# Wrapper parameters come from chain_generated.yml (chain_wrapper_*).
+vless_http_server_name: "{{ chain_wrapper_server_name }}"
+vless_http_listen_port: "{{ chain_wrapper_listen_port | default(443) }}"
+vless_http_use_certbot: "{{ chain_wrapper_use_certbot | default(true) | bool }}"
+vless_http_cert_file: >-
+  {{ chain_wrapper_cert_file
+     if (chain_wrapper_cert_file | default('') | trim) != ''
+     else (vless_http_letsencrypt_dir ~ '/live/' ~ vless_http_server_name ~ '/fullchain.pem') }}
+vless_http_key_file: >-
+  {{ chain_wrapper_key_file
+     if (chain_wrapper_key_file | default('') | trim) != ''
+     else (vless_http_letsencrypt_dir ~ '/live/' ~ vless_http_server_name ~ '/privkey.pem') }}
+
+# Controller-side rendered config + adu payloads.
+awg_work_vless_http_configs: "{{ awg_work_root }}/vless_http_configs"

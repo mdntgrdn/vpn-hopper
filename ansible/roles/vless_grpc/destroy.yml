@@ -1,0 +1,17 @@
+---
+# Tear down the vless-grpc wrapper on the chain entry host.
+# Entry: scripts/destroy_chain.py runs this before the AWG teardown.
+
+- name: Destroy vless-grpc wrapper on wrapper host
+  hosts: "{{ vless_wrapper_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import wrapper host teardown
+      ansible.builtin.import_tasks: "{{ awg_roles_vless_grpc_tasks }}/destroy_host.yml"

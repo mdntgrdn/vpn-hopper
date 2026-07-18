@@ -1,0 +1,42 @@
+---
+# Pull entry node runtime so an existing client's .conf can be re-rendered.
+# Internal: called from scripts/export_client.py. Nothing on the nodes is
+# changed; client private keys come from awg_clients.yml, not the server.
+
+- name: Pull entry runtime
+  hosts: "{{ wg_entry_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Pull entry node keys and neighbor public keys
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/pull_entry_runtime.yml"
+
+- name: Build chain runtime on controller
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Build chain_runtime (client-pull)
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -m
+          - scripts.lib.wg.build_runtime
+          - --chain
+          - "{{ awg_chain_name }}"
+          - --client-pull
+      environment:
+        PYTHONPATH: "{{ awg_pythonpath }}"
+      changed_when: false

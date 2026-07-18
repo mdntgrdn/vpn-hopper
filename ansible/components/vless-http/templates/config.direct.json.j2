@@ -1,0 +1,38 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "api": {
+    "tag": "api",
+    "services": ["HandlerService"]
+  },
+  "inbounds": [
+{% include '_api_inbound.json.j2' %}
+{% include '_inbound.json.j2' %}
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom"
+    },
+    {
+      "protocol": "freedom",
+      "tag": "api"
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["api"],
+        "outboundTag": "api"
+      },
+      {
+        "type": "field",
+        "inboundTag": ["vless-in"],
+        "outboundTag": "direct"
+      }
+    ]
+  }
+}

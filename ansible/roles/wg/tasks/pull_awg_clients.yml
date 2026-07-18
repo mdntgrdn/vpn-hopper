@@ -1,0 +1,25 @@
+---
+# End-user awg_clients.yml lives on chain entry only — fetch straight to group_vars.
+
+- name: Check awg_clients on entry
+  ansible.builtin.stat:
+    path: "{{ awg_remote_awg_clients }}"
+  register: _wg_awg_clients_stat
+
+- name: Fetch awg_clients from entry into work area
+  ansible.builtin.fetch:
+    src: "{{ awg_remote_awg_clients }}"
+    dest: "{{ awg_work_group_vars }}/awg_clients.yml"
+    flat: true
+  when: _wg_awg_clients_stat.stat.exists | default(false)
+
+- name: Empty awg_clients registry (first deploy, no clients yet)
+  ansible.builtin.copy:
+    dest: "{{ awg_work_group_vars }}/awg_clients.yml"
+    mode: "0600"
+    content: |
+      awg_wireguard_clients: {}
+  delegate_to: localhost
+  vars:
+    ansible_become: false
+  when: not (_wg_awg_clients_stat.stat.exists | default(false))

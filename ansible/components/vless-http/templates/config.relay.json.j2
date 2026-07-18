@@ -1,0 +1,62 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "api": {
+    "tag": "api",
+    "services": ["HandlerService"]
+  },
+  "inbounds": [
+{% include '_api_inbound.json.j2' %}
+{% include '_inbound.json.j2' %}
+  ],
+  "outbounds": [
+    {
+      "tag": "to-next",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "{{ relay_address }}",
+            "port": {{ relay_port }},
+            "users": [
+              {
+                "id": "{{ relay_uuid }}",
+                "encryption": "none",
+                "flow": "{{ relay_flow }}"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "{{ relay_server_name }}",
+          "fingerprint": "chrome",
+          "alpn": {{ relay_alpn | tojson }}
+        }
+      }
+    },
+    {
+      "protocol": "freedom",
+      "tag": "api"
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["api"],
+        "outboundTag": "api"
+      },
+      {
+        "type": "field",
+        "inboundTag": ["vless-in"],
+        "outboundTag": "to-next"
+      }
+    ]
+  }
+}

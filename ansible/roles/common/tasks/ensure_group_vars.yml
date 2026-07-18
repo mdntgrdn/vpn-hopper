@@ -1,0 +1,9 @@
+---
+- name: group_vars directory in temporary work area
+  ansible.builtin.file:
+    path: "{{ awg_work_group_vars }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  vars:
+    ansible_become: false

@@ -1,0 +1,23 @@
+---
+# Best-effort: delete client key pairs on entry whose .public content matches a
+# removed peer's public_key. Identity-based, so it works regardless of slug.
+- name: Delete key pairs for removed peers
+  ansible.builtin.shell: |
+    set -euo pipefail
+    dir="{{ awg_remote_wg_client_keys_dir }}"
+    removed=0
+    for pub in {{ wg_remove_pubkeys | map('quote') | join(' ') }}; do
+      for f in "$dir"/*.public; do
+        [ -e "$f" ] || continue
+        if [ "$(tr -d '[:space:]' < "$f")" = "$pub" ]; then
+          rm -f "$f" "${f%.public}.private"
+          removed=$((removed + 1))
+        fi
+      done
+    done
+    echo "removed=$removed"
+  args:
+    executable: /bin/bash
+  register: _wg_keys_removed
+  changed_when: "'removed=0' not in _wg_keys_removed.stdout"
+  when: (wg_remove_pubkeys | default([])) | length > 0

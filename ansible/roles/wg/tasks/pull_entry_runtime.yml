@@ -1,0 +1,47 @@
+---
+# Pull entry node keys + neighbor public keys so render can rebuild the entry config.
+- name: Entry artifacts directory in work area
+  ansible.builtin.file:
+    path: "{{ awg_work_artifacts }}/{{ inventory_hostname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  vars:
+    ansible_become: false
+
+- name: Fetch entry node private key
+  ansible.builtin.fetch:
+    src: "{{ awg_remote_host_keys_dir }}/private.key"
+    dest: "{{ awg_work_artifacts }}/{{ inventory_hostname }}/private.key"
+    flat: true
+  no_log: true
+
+- name: Fetch entry node public key
+  ansible.builtin.fetch:
+    src: "{{ awg_remote_host_keys_dir }}/public.key"
+    dest: "{{ awg_work_artifacts }}/{{ inventory_hostname }}/public.key"
+    flat: true
+
+- name: Entry peers artifacts directory
+  ansible.builtin.file:
+    path: "{{ awg_work_artifacts }}/{{ inventory_hostname }}/peers"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  vars:
+    ansible_become: false
+
+- name: List neighbor public keys on entry
+  ansible.builtin.find:
+    paths: "{{ awg_remote_peers_dir }}"
+    patterns: "*_public.key"
+  register: _entry_peer_keys
+
+- name: Fetch neighbor public keys
+  ansible.builtin.fetch:
+    src: "{{ item.path }}"
+    dest: "{{ awg_work_artifacts }}/{{ inventory_hostname }}/peers/{{ item.path | basename }}"
+    flat: true
+  loop: "{{ _entry_peer_keys.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"

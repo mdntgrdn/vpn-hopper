@@ -1,0 +1,26 @@
+---
+- name: Remove AWG container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - rm
+      - -f
+      - "{{ docker_container_name }}"
+  failed_when: false
+  changed_when: false
+
+- name: Start AWG container
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker run -d \
+      --name "{{ docker_container_name }}" \
+      --network host \
+      --cap-add NET_ADMIN \
+      --device "{{ docker_net_tun_device }}" \
+      -v "{{ awg_dir }}:{{ docker_container_config_mount_dest }}" \
+      --restart unless-stopped \
+      "{{ docker_image_name }}" \
+      sh -c 'awg-quick up {{ awg_wg_interface | default(awg_chain_name) }} && tail -f /dev/null'
+  args:
+    executable: /bin/bash
+  changed_when: true

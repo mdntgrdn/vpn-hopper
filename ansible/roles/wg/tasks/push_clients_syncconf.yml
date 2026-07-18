@@ -1,0 +1,28 @@
+---
+# Push updated awg_clients.yml + entry config to the node and hot-apply via awg syncconf.
+- name: AWG directory on node
+  ansible.builtin.file:
+    path: "{{ awg_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Deploy awg_clients to entry node
+  ansible.builtin.copy:
+    src: "{{ awg_work_group_vars }}/awg_clients.yml"
+    dest: "{{ awg_remote_awg_clients }}"
+    mode: "0600"
+
+- name: Deploy AWG configuration file
+  ansible.builtin.copy:
+    src: "{{ awg_configs_src }}/{{ inventory_hostname }}.conf"
+    dest: "{{ awg_dir }}/{{ awg_deploy_conf_basename }}"
+    mode: "0600"
+
+- name: Apply AWG configuration via awg syncconf
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker exec "{{ docker_container_name }}" \
+      sh -c 'awg-quick strip "{{ docker_container_config_mount_dest }}/{{ awg_deploy_conf_basename }}" | awg syncconf "{{ awg_chain_name }}" /dev/stdin'
+  args:
+    executable: /bin/bash
+  changed_when: true

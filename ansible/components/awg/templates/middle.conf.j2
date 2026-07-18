@@ -1,0 +1,44 @@
+[Interface]
+Address = {{ tunnel_address }}
+PrivateKey = {{ private_key }}
+ListenPort = {{ listen_port }}
+MTU = 1280
+Table = off
+
+Jc = 7
+Jmin = 45
+Jmax = 190
+S1 = 68
+S2 = 52
+S3 = 28
+S4 = 12
+H1 = 52345678
+H2 = 62345678
+H3 = 72345678
+H4 = 82345678
+
+PostUp = ip rule add from {{ client_subnet }} table {{ routing_table }} || true
+PostUp = ip route replace default dev {{ awg_chain_name }} table {{ routing_table }}
+PostUp = ip route replace {{ client_subnet }} dev {{ awg_chain_name }}
+PostUp = iptables -C FORWARD -i {{ awg_chain_name }} -o {{ awg_chain_name }} -j ACCEPT || iptables -A FORWARD -i {{ awg_chain_name }} -o {{ awg_chain_name }} -j ACCEPT
+# Fail-closed kill-switch: forwarded client traffic may leave ONLY via the tunnel
+# (next hop). If the policy ip-rules are flushed, DROP instead of leaking out WAN.
+PostUp = iptables -C FORWARD -s {{ client_subnet }} ! -o {{ awg_chain_name }} -j DROP 2>/dev/null || iptables -I FORWARD 1 -s {{ client_subnet }} ! -o {{ awg_chain_name }} -j DROP
+PostUp = iptables -C INPUT -i {{ awg_chain_name }} -s {{ exit_tunnel_ip }} -p icmp -j ACCEPT || iptables -I INPUT 1 -i {{ awg_chain_name }} -s {{ exit_tunnel_ip }} -p icmp -j ACCEPT
+
+PostDown = ip rule del from {{ client_subnet }} table {{ routing_table }} || true
+PostDown = ip route del default dev {{ awg_chain_name }} table {{ routing_table }} || true
+PostDown = ip route del {{ client_subnet }} dev {{ awg_chain_name }} || true
+PostDown = iptables -D FORWARD -i {{ awg_chain_name }} -o {{ awg_chain_name }} -j ACCEPT || true
+PostDown = iptables -D FORWARD -s {{ client_subnet }} ! -o {{ awg_chain_name }} -j DROP || true
+PostDown = iptables -D INPUT -i {{ awg_chain_name }} -s {{ exit_tunnel_ip }} -p icmp -j ACCEPT || true
+
+[Peer]
+PublicKey = {{ peer_down_public_key }}
+Endpoint = {{ downstream_endpoint }}
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 25
+
+[Peer]
+PublicKey = {{ peer_up_public_key }}
+AllowedIPs = {{ peer_up_tunnel_ip }}/32, {{ client_subnet }}

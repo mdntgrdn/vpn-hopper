@@ -1,0 +1,85 @@
+---
+# Add AWG client(s) on chain entry. Internal: called from scripts/add_clients.py.
+
+- name: Generate client keys and pull entry runtime
+  hosts: "{{ wg_entry_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+    wg_peer_batch: "{{ wg_peer_batch | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Generate client key pairs
+      ansible.builtin.include_tasks: "{{ awg_roles_wg_tasks }}/client_keygen.yml"
+      loop: "{{ wg_peer_batch }}"
+      loop_control:
+        loop_var: peer_item
+        label: "{{ peer_item.wg_peer_id }}"
+
+    - name: Pull entry node keys and neighbor public keys
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/pull_entry_runtime.yml"
+
+- name: Append clients and render entry config
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+    wg_peer_batch: "{{ wg_peer_batch | mandatory }}"
+    wg_entry_host: "{{ wg_entry_host | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Append each client to awg_clients
+      ansible.builtin.include_tasks: "{{ awg_roles_wg_tasks }}/append_clients.yml"
+      loop: "{{ wg_peer_batch }}"
+      loop_control:
+        loop_var: peer_item
+        label: "{{ peer_item.username }}"
+
+    - name: Build chain_runtime (client-pull)
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -m
+          - scripts.lib.wg.build_runtime
+          - --chain
+          - "{{ awg_chain_name }}"
+          - --client-pull
+      environment:
+        PYTHONPATH: "{{ awg_pythonpath }}"
+      changed_when: false
+
+    - name: Render entry node configuration
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -m
+          - scripts.lib.wg.render_configs
+          - --chain
+          - "{{ awg_chain_name }}"
+          - --hosts
+          - "{{ wg_entry_host }}"
+      environment:
+        PYTHONPATH: "{{ awg_pythonpath }}"
+      changed_when: false
+
+- name: Push registry and apply entry config
+  hosts: "{{ wg_entry_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import push and syncconf
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/push_clients_syncconf.yml"

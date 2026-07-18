@@ -1,0 +1,74 @@
+---
+# Remove AWG client(s) on chain entry. Internal: called from
+# scripts/remove_clients.py after the registry has been edited in the work area.
+
+- name: Pull entry runtime for re-render
+  hosts: "{{ wg_entry_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Pull entry node keys and neighbor public keys
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/pull_entry_runtime.yml"
+
+- name: Rebuild runtime and render entry config
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+    wg_entry_host: "{{ wg_entry_host | mandatory }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Build chain_runtime (client-pull)
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -m
+          - scripts.lib.wg.build_runtime
+          - --chain
+          - "{{ awg_chain_name }}"
+          - --client-pull
+      environment:
+        PYTHONPATH: "{{ awg_pythonpath }}"
+      changed_when: false
+
+    - name: Render entry node configuration
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -m
+          - scripts.lib.wg.render_configs
+          - --chain
+          - "{{ awg_chain_name }}"
+          - --hosts
+          - "{{ wg_entry_host }}"
+      environment:
+        PYTHONPATH: "{{ awg_pythonpath }}"
+      changed_when: false
+
+- name: Push registry, apply config, drop client keys
+  hosts: "{{ wg_entry_host }}"
+  become: true
+  gather_facts: false
+  vars:
+    awg_chain_name: "{{ awg_chain_name | mandatory }}"
+    wg_remove_pubkeys: "{{ wg_remove_pubkeys | default([]) }}"
+  vars_files:
+    - ../common/defaults/main.yml
+    - defaults/main.yml
+    - "{{ awg_work_chain_generated }}"
+  tasks:
+    - name: Import push and syncconf
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/push_clients_syncconf.yml"
+
+    - name: Remove client key files for dropped peers
+      ansible.builtin.import_tasks: "{{ awg_roles_wg_tasks }}/remove_client_keys.yml"

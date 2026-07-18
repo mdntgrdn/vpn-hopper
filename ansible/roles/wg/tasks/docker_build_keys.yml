@@ -1,0 +1,82 @@
+---
+- name: AWG image build directory
+  ansible.builtin.file:
+    path: "{{ awg_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Copy AWG Dockerfile
+  ansible.builtin.copy:
+    src: "{{ awg_dockerfile_src }}"
+    dest: "{{ awg_dir }}/Dockerfile"
+    mode: "0644"
+
+- name: Check Docker CLI availability
+  ansible.builtin.command:
+    argv:
+      - docker
+      - --version
+  register: awg_docker_cli
+  changed_when: false
+  failed_when: false
+
+- name: Install Docker on Debian
+  when:
+    - awg_docker_cli.rc != 0
+    - ansible_facts["os_family"] == "Debian"
+  ansible.builtin.apt:
+    name: docker.io
+    state: present
+    update_cache: true
+
+- name: Install Docker on other OS families
+  when:
+    - awg_docker_cli.rc != 0
+    - ansible_facts["os_family"] != "Debian"
+  ansible.builtin.package:
+    name: docker
+    state: present
+
+- name: Start and enable docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Check AWG image exists
+  ansible.builtin.command:
+    argv:
+      - docker
+      - image
+      - inspect
+      - "{{ docker_image_name }}"
+  register: _awg_image_built
+  changed_when: false
+  failed_when: false
+
+- name: Build AWG container image
+  ansible.builtin.command:
+    cmd: docker build -t {{ docker_image_name }} .
+    chdir: "{{ awg_dir }}"
+  changed_when: true
+  when: _awg_image_built.rc | int != 0
+
+- name: Node keys directory
+  ansible.builtin.file:
+    path: "{{ awg_remote_host_keys_dir }}"
+    state: directory
+    mode: "0700"
+  when: not (chain_awg_keys_exist | default(false) | bool)
+
+- name: Generate AWG node keys
+  ansible.builtin.shell: |
+    set -euo pipefail
+    docker run --rm {{ docker_image_name }} \
+      sh -c "awg genkey | tee /dev/stderr | awg pubkey" \
+      2>{{ awg_remote_host_keys_dir }}/private.key \
+      >{{ awg_remote_host_keys_dir }}/public.key
+    chmod 600 {{ awg_remote_host_keys_dir }}/private.key {{ awg_remote_host_keys_dir }}/public.key
+  args:
+    executable: /bin/bash
+  changed_when: true
+  when: not (chain_awg_keys_exist | default(false) | bool)

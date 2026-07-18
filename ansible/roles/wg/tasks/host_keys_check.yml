@@ -1,0 +1,20 @@
+---
+- name: Check node private key on server
+  ansible.builtin.stat:
+    path: "{{ awg_remote_host_keys_dir }}/private.key"
+  register: _awg_stat_priv
+
+- name: Check node public key on server
+  ansible.builtin.stat:
+    path: "{{ awg_remote_host_keys_dir }}/public.key"
+  register: _awg_stat_pub
+
+- name: Record node keys presence
+  ansible.builtin.set_fact:
+    chain_awg_keys_exist: >-
+      {{
+        (_awg_stat_priv.stat.exists | default(false))
+        and (_awg_stat_pub.stat.exists | default(false))
+        and (_awg_stat_priv.stat.size | default(0) | int > 0)
+        and (_awg_stat_pub.stat.size | default(0) | int > 0)
+      }}

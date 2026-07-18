@@ -1,0 +1,8 @@
+---
+- name: Remove local chain directory on controller
+  ansible.builtin.file:
+    path: "{{ awg_root }}"
+    state: absent
+  delegate_to: localhost
+  vars:
+    ansible_become: false

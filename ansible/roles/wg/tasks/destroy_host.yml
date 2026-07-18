@@ -1,0 +1,59 @@
+---
+# Full AWG teardown on a chain node.
+# Container runs with --network host, so the awg interface and its PostUp
+# iptables/ip rules live in the host netns: bring it down gracefully first
+# (triggers PostDown) before removing container, image and deploy dir.
+
+- name: Bring down AWG gateway client interface (host netns cleanup)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ awg_client_interface }}"
+      - awg-quick
+      - down
+      - "{{ awg_client_interface }}"
+  when: chain_has_awg_client | default(false) | bool
+  register: _wg_destroy_client_down
+  changed_when: _wg_destroy_client_down.rc | int == 0
+  failed_when: false
+
+- name: Remove AWG gateway client container
+  ansible.builtin.command:
+    argv: [docker, rm, "-f", "{{ awg_client_interface }}"]
+  when: chain_has_awg_client | default(false) | bool
+  register: _wg_destroy_client_rm
+  changed_when: _wg_destroy_client_rm.rc | int == 0
+  failed_when: false
+
+- name: Bring down AWG server interface (host netns cleanup)
+  ansible.builtin.command:
+    argv:
+      - docker
+      - exec
+      - "{{ docker_container_name }}"
+      - awg-quick
+      - down
+      - "{{ awg_chain_name }}"
+  register: _wg_destroy_server_down
+  changed_when: _wg_destroy_server_down.rc | int == 0
+  failed_when: false
+
+- name: Remove AWG server container
+  ansible.builtin.command:
+    argv: [docker, rm, "-f", "{{ docker_container_name }}"]
+  register: _wg_destroy_server_rm
+  changed_when: _wg_destroy_server_rm.rc | int == 0
+  failed_when: false
+
+- name: Remove AWG Docker image
+  ansible.builtin.command:
+    argv: [docker, rmi, "-f", "{{ docker_image_name }}"]
+  register: _wg_destroy_rmi
+  changed_when: _wg_destroy_rmi.rc | int == 0
+  failed_when: false
+
+- name: Remove deploy directory (configs, keys, awg_clients, peers)
+  ansible.builtin.file:
+    path: "{{ deploy_dir }}"
+    state: absent

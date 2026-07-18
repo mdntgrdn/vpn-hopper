@@ -1,0 +1,15 @@
+---
+- name: Temporary work area on controller
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - "{{ awg_work_root }}"
+    - "{{ awg_work_artifacts }}"
+    - "{{ awg_work_group_vars }}"
+    - "{{ awg_work_configs }}"
+    - "{{ awg_work_mirror }}"
+  delegate_to: localhost
+  vars:
+    ansible_become: false
